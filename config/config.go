@@ -137,6 +137,7 @@ type Flock struct {
 type Webhook struct {
 	// Webhook URL.
 	Url     string `json:"url"`
+	Timeout string `json:"timeout"`
 	Cert    string `json:"cert"`
 	TlsSkip bool   `json:"tlsskip"`
 }

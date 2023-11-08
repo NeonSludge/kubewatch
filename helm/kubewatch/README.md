@@ -94,6 +94,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `msteams.webhookurl`                     | Microsoft Teams webhook URL                                                      | `""`                   |
 | `webhook.enabled`                        | Enable Webhook notifications                                                     | `false`                |
 | `webhook.url`                            | Webhook URL                                                                      | `""`                   |
+| `webhook.timeout`                        | Webhook HTTP timeout (duration)                                                  | `""`                   |
 | `smtp.enabled`                           | Enable SMTP (email) notifications                                                | `false`                |
 | `smtp.to`                                | Destination email address (required)                                             | `""`                   |
 | `smtp.from`                              | Source email address (required)                                                  | `""`                   |

@@ -20,9 +20,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/sirupsen/logrus"
 
 	"bytes"
 	"encoding/json"
@@ -49,7 +51,8 @@ Command line flags will override environment variables
 // Webhook handler implements handler.Handler interface,
 // Notify event to Webhook channel
 type Webhook struct {
-	Url string
+	Client *http.Client
+	Url    string
 }
 
 // WebhookMessage for messages
@@ -70,11 +73,18 @@ type EventMeta struct {
 // Init prepares Webhook configuration
 func (m *Webhook) Init(c *config.Config) error {
 	url := c.Handler.Webhook.Url
+	timeout := c.Handler.Webhook.Timeout
 	cert := c.Handler.Webhook.Cert
 	tlsSkip := c.Handler.Webhook.TlsSkip
 
 	if url == "" {
 		url = os.Getenv("KW_WEBHOOK_URL")
+	}
+	if timeout == "" {
+		timeout = os.Getenv("KW_WEBHOOK_TIMEOUT")
+		if timeout == "" {
+			timeout = "0s"
+		}
 	}
 	if cert == "" {
 		cert = os.Getenv("KW_WEBHOOK_CERT")
@@ -100,6 +110,16 @@ func (m *Webhook) Init(c *config.Config) error {
 
 	}
 
+	timeoutDuration, err := time.ParseDuration(timeout)
+	if err != nil {
+		logrus.Printf("%s\n", err)
+		return err
+	}
+
+	m.Client = &http.Client{
+		Timeout: timeoutDuration,
+	}
+
 	return checkMissingWebhookVars(m)
 }
 
@@ -107,7 +127,7 @@ func (m *Webhook) Init(c *config.Config) error {
 func (m *Webhook) Handle(e event.Event) {
 	webhookMessage := prepareWebhookMessage(e, m)
 
-	err := postMessage(m.Url, webhookMessage)
+	err := postMessage(m.Client, m.Url, webhookMessage)
 	if err != nil {
 		logrus.Printf("%s\n", err)
 		return
@@ -137,7 +157,7 @@ func prepareWebhookMessage(e event.Event, m *Webhook) *WebhookMessage {
 	}
 }
 
-func postMessage(url string, webhookMessage *WebhookMessage) error {
+func postMessage(client *http.Client, url string, webhookMessage *WebhookMessage) error {
 	message, err := json.Marshal(webhookMessage)
 	if err != nil {
 		return err
@@ -149,11 +169,16 @@ func postMessage(url string, webhookMessage *WebhookMessage) error {
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{}
-	_, err = client.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
+	_, err = io.Copy(io.Discard, res.Body)
+	if err != nil {
+		return err
+	}
+
+	res.Body.Close()
 	return nil
 }
