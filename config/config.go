@@ -150,7 +150,8 @@ type Lark struct {
 
 // CloudEvent contains CloudEvent configuration
 type CloudEvent struct {
-	Url string `json:"url"`
+	Url     string `json:"url"`
+	Timeout string `json:"timeout"`
 }
 
 // MSTeams contains MSTeams configuration

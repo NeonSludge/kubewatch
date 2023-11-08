@@ -77,15 +77,18 @@ func (m *Webhook) Init(c *config.Config) error {
 	cert := c.Handler.Webhook.Cert
 	tlsSkip := c.Handler.Webhook.TlsSkip
 
+	if timeout == "" {
+		timeout = os.Getenv("KW_WEBHOOK_TIMEOUT")
+	}
+
+	if timeout == "" {
+		timeout = "0s"
+	}
+
 	if url == "" {
 		url = os.Getenv("KW_WEBHOOK_URL")
 	}
-	if timeout == "" {
-		timeout = os.Getenv("KW_WEBHOOK_TIMEOUT")
-		if timeout == "" {
-			timeout = "0s"
-		}
-	}
+
 	if cert == "" {
 		cert = os.Getenv("KW_WEBHOOK_CERT")
 	}
@@ -119,8 +122,6 @@ func (m *Webhook) Init(c *config.Config) error {
 	m.Client = &http.Client{
 		Timeout: timeoutDuration,
 	}
-
-	logrus.Println(m.Client)
 
 	return checkMissingWebhookVars(m)
 }
@@ -171,17 +172,17 @@ func postMessage(client *http.Client, url string, webhookMessage *WebhookMessage
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	res, err := client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	_, err = io.Copy(io.Discard, res.Body)
+	_, err = io.Copy(io.Discard, resp.Body)
 	if err != nil {
 		return err
 	}
 
-	logrus.Println("closing response body")
-	res.Body.Close()
+	defer resp.Body.Close()
+
 	return nil
 }

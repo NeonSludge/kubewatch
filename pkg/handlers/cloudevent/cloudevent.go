@@ -18,8 +18,10 @@ package cloudevent
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"io"
 	"os"
+
+	"github.com/sirupsen/logrus"
 
 	"bytes"
 	"encoding/json"
@@ -46,6 +48,7 @@ Command line flags will override environment variables
 // Webhook handler implements handler.Handler interface,
 // Notify event to Webhook channel
 type CloudEvent struct {
+	Client    *http.Client
 	Url       string
 	StartTime uint64
 	Counter   uint64
@@ -77,6 +80,15 @@ func (m *CloudEvent) Init(c *config.Config) error {
 	m.Url = c.Handler.CloudEvent.Url
 	m.StartTime = uint64(time.Now().Unix())
 	m.Counter = 0
+	timeout := c.Handler.CloudEvent.Timeout
+
+	if timeout == "" {
+		timeout = os.Getenv("KW_CLOUDEVENT_TIMEOUT")
+	}
+
+	if timeout == "" {
+		timeout = "0s"
+	}
 
 	if m.Url == "" {
 		m.Url = os.Getenv("KW_CLOUDEVENT_URL")
@@ -84,6 +96,16 @@ func (m *CloudEvent) Init(c *config.Config) error {
 
 	if m.Url == "" {
 		return fmt.Errorf(cloudEventErrMsg, "Missing cloudevent url")
+	}
+
+	timeoutDuration, err := time.ParseDuration(timeout)
+	if err != nil {
+		logrus.Printf("%s\n", err)
+		return err
+	}
+
+	m.Client = &http.Client{
+		Timeout: timeoutDuration,
 	}
 
 	return nil
@@ -147,11 +169,16 @@ func (m *CloudEvent) postMessage(webhookMessage *CloudEventMessage) error {
 	}
 	req.Header.Add("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := m.Client.Do(req)
 	if err != nil {
 		return err
 	}
+
+	_, err = io.Copy(io.Discard, resp.Body)
+	if err != nil {
+		return err
+	}
+
 	defer resp.Body.Close()
 
 	return nil
