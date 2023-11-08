@@ -120,6 +120,8 @@ func (m *Webhook) Init(c *config.Config) error {
 		Timeout: timeoutDuration,
 	}
 
+	logrus.Println(m.Client)
+
 	return checkMissingWebhookVars(m)
 }
 
