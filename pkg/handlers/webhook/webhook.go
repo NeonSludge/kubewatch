@@ -181,6 +181,7 @@ func postMessage(client *http.Client, url string, webhookMessage *WebhookMessage
 		return err
 	}
 
+	logrus.Println("closing response body")
 	res.Body.Close()
 	return nil
 }
